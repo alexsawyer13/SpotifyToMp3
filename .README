@@ -3,3 +3,6 @@ Install the latest version of ytdlp. It's important to downlaod from github dire
 
 Install spotipy
 	pip install spotipy
+
+Install FFMPEG
+	sudo apt install ffmpeg
