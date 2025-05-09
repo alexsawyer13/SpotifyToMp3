@@ -1,4 +1,4 @@
-import json
+import json as jsonlib
 import os
 import sys
 import subprocess
@@ -25,8 +25,9 @@ class Spotify:
 
     class Track:
         def __init__(self, json):
-            self.name = json["name"]
+            self.name = json["name"].replace("/", "-")
             self.track_number = json["track_number"]
+
             self.artists = []
 
             for a in json["artists"]:
@@ -62,11 +63,44 @@ class Spotify:
             for t in json["tracks"]["items"]:
                 self.tracks.append(Spotify.Track(t["track"]))
 
+            self.num_tracks = len(self.tracks)
+
         def print(self):
             print(self.name)
             for t in self.tracks:
                 print("\t", end="")
                 t.print()
+
+        def download(self):
+            os.system(f"mkdir -p \"out/{self.name}\"")
+
+            for i in range(len(self.tracks)):
+                track = self.tracks[i]
+
+                # Search youtube for track
+                search = track.get_search_string()
+                url = youtube_search(search)
+
+                # Download to mp3 file
+                #dst = f"out/{self.name}/{str(i).zfill(len(str(self.num_tracks)))}. {track.name}"
+                dst = f"out/{self.name}/{str(i).zfill(len(str(self.num_tracks)))}. {track.name}"
+                youtube_to_mp3(url, dst)
+                
+                # Create string of artists
+                artists = track.artists[0].name
+                for artist in track.artists[1:]:
+                    artists += "/"
+                    artists += artist.name
+
+                # Add metadata to mp3
+                mp3 = music_tag.load_file(f"{dst}.mp3")
+                mp3["title"] = track.name
+                mp3["album"] = f"[PL] {self.name}" # [PL] Indicates a playlist instead of an album
+                mp3["artist"] = artists
+                mp3["discnumber"] = track.track_number
+                #if img_data:
+                    #mp3["artwork"] = img_data
+                mp3.save()
 
     class Album:
         def __init__(self, json):
@@ -113,8 +147,8 @@ class Spotify:
                 youtube_to_mp3(url, dst)
                 
                 # Create string of artists
-                artists = self.artists[0].name
-                for artist in self.artists[1:]:
+                artists = track.artists[0].name
+                for artist in track.artists[1:]:
                     artists += "/"
                     artists += artist.name
 
@@ -132,13 +166,13 @@ class Spotify:
 
     def __init__(self):
         with open(self.CREDS_FILE) as f:
-            j = json.load(f)
+            j = jsonlib.load(f)
             self.sp = spotipy.Spotify(
                 auth_manager=SpotifyOAuth(
                     client_id=j["client_id"],
                     client_secret=j["client_secret"],
                     redirect_uri=j["redirect_url"],
-                    scope="user-library-read"
+                    scope="user-library-read playlist-read-private playlist-read-collaborative"
                 )
             )
 
@@ -189,25 +223,22 @@ if len(sys.argv) != 2:
     print("\tstmp3 <file of albums>")
 
 arg = sys.argv[1]
-album_links = []
+links = []
 
 try:
     f = open(arg, "r")
-    album_links = [x for x in f.read().split("\n") if x != ""]
+    links = [x for x in f.read().split("\n") if x != ""]
     f.close()
 
 except:
-    album_links.append(arg)
+    links.append(arg)
 
-print(album_links)
-
-cont = input("Is this correct? (y/n)")
-
-if cont != "y":
-    exit()
+print(links)
 
 spot = Spotify()
 
-for link in album_links:
-    a = spot.get_album_by_link(link)
-    a.download()
+for link in links:
+    if link.startswith("https://open.spotify.com/album"):
+        spot.get_album_by_link(link).download()
+    if link.startswith("https://open.spotify.com/playlist"):
+        spot.get_playlist_by_link(link).download()
