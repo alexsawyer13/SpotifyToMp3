@@ -21,6 +21,7 @@ class Spotify:
     class Track:
         def __init__(self, json):
             self.name = json["name"]
+            self.track_number = json["track_number"]
             self.artists = []
 
             for a in json["artists"]:
@@ -56,6 +57,15 @@ class Spotify:
                 print("\t", end="")
                 t.print()
 
+    class Album:
+        def __init__(self, json):
+            self.name = json["name"]
+            self.tracks = []
+
+            for t in json["tracks"]["items"]:
+                self.tracks.append(Spotify.Track(t))
+
+
     def __init__(self):
         with open(self.CREDS_FILE) as f:
             j = json.load(f)
@@ -72,6 +82,10 @@ class Spotify:
         json = self.sp.playlist(link)
         return Spotify.Playlist(json)
 
+    def get_album_by_link(self, link: str) -> Album:
+        json = self.sp.album(link)
+        return Spotify.Album(json)
+
 
 # Downloads URL to .tmp.mp3
 def youtube_to_mp3(url: str):
@@ -83,18 +97,53 @@ def youtube_to_mp3(url: str):
     }
 
     with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
-        ydl.download([URL])
+        ydl.download([url])
 
     subprocess.run('ffmpeg -i .tmp.webm .tmp.mp3', shell=True)
     os.remove(".tmp.webm")
 
+def youtube_search(query: str):
+    # Options for searching
+    ydl_opts = {
+        'quiet': True,  # Suppress unnecessary output
+        'extract_flat': True,  # Do not download videos, just extract info
+        'force_generic_extractor': True,  # Use the generic extractor for all URLs
+    }
+    
+    # Perform the search
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        result = ydl.extract_info(f"ytsearch:{query}", download=False)
+        # Print the first result
+        video = result['entries'][0]  # First result
+        #print(video)
+        return f"https://www.youtube.com/watch?v={video['id']}"
 
 spot = Spotify()
 
-p = spot.get_playlist_by_link("https://open.spotify.com/playlist/2hFAnErU2cPxkoxivmBT2l?si=1be60dd1bf6f4bac")
+#p = spot.get_playlist_by_link("https://open.spotify.com/playlist/2hFAnErU2cPxkoxivmBT2l?si=1be60dd1bf6f4bac")
+a = spot.get_album_by_link("https://open.spotify.com/album/7yQtjAjhtNi76KRu05XWFS?si=QYj0ot_STVC59v2DN9W1cw")
 
-for t in p.tracks:
-    print(t.get_search_string())
+for i in range(len(a.tracks)):
+    t = a.tracks[i]
 
-URL = "https://www.youtube.com/watch?v=KnlZ9qX7nz8"
-youtube_to_mp3(URL)
+    s = t.get_search_string()
+    url = youtube_search(s)
+    youtube_to_mp3(url)
+
+    os.rename(".tmp.mp3", f"{t.track_number}. {t.name}")
+
+#print(p.tracks[0].get_search_string())
+#
+#url = youtube_search(p.tracks[0].get_search_string())
+#
+#youtube_to_mp3(url)
+#
+#os.rename(".tmp.mp3", f"\"{p.tracks[0].get_search_string()}.mp3\"")
+
+#for t in p.tracks:
+    #print(t.get_search_string())
+
+#youtube_search("andrew dotson")
+
+#URL = "https://www.youtube.com/watch?v=KnlZ9qX7nz8"
+#youtube_to_mp3(URL)

@@ -2,3 +2,4 @@ build/*
 .cache
 *.mp3
 *.json
+out/*
