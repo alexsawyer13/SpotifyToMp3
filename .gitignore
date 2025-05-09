@@ -1,5 +1,7 @@
 build/*
+out/*
+
 .cache
 *.mp3
 *.json
-out/*
+*.txt

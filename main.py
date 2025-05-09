@@ -1,12 +1,11 @@
 import json
 import os
+import sys
 import subprocess
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-
 import yt_dlp
-
 import music_tag
 
 import requests
@@ -184,7 +183,31 @@ def youtube_search(query: str):
         return f"https://www.youtube.com/watch?v={video['id']}"
 
 
+if len(sys.argv) != 2:
+    print("Usage:")
+    print("\tstmp3 <album>")
+    print("\tstmp3 <file of albums>")
+
+arg = sys.argv[1]
+album_links = []
+
+try:
+    f = open(arg, "r")
+    album_links = [x for x in f.read().split("\n") if x != ""]
+    f.close()
+
+except:
+    album_links.append(arg)
+
+print(album_links)
+
+cont = input("Is this correct? (y/n)")
+
+if cont != "y":
+    exit()
+
 spot = Spotify()
 
-a = spot.get_album_by_link("https://open.spotify.com/album/7yQtjAjhtNi76KRu05XWFS?si=QYj0ot_STVC59v2DN9W1cw")
-a.download()
+for link in album_links:
+    a = spot.get_album_by_link(link)
+    a.download()
