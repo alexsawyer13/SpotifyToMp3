@@ -1,9 +1,15 @@
+import json
+import os
+import subprocess
+
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-import json
+
 import yt_dlp
-import subprocess
-import os
+
+import music_tag
+
+import requests
 
 
 class SpotifyPlaylist:
@@ -43,6 +49,12 @@ class Spotify:
 
             return str
 
+    class Image:
+        def __init__(self, json):
+            self.width = json["width"]
+            self.height = json["height"]
+            self.url = json["url"]
+
     class Playlist:
         def __init__(self, json):
             self.name = json["name"]
@@ -60,11 +72,64 @@ class Spotify:
     class Album:
         def __init__(self, json):
             self.name = json["name"]
+            self.release_year = json["release_date"]
+            self.track_count = json["total_tracks"]
+
+            self.images = []
             self.tracks = []
+            self.artists = []
 
             for t in json["tracks"]["items"]:
                 self.tracks.append(Spotify.Track(t))
 
+            for a in json["artists"]:
+                self.artists.append(Spotify.Artist(a))
+
+            for i in json["images"]:
+                self.images.append(Spotify.Image(i))
+
+        def download(self):
+            os.system(f"mkdir -p \"out/{self.name}\"")
+
+            # Get album art
+            img_data = None
+
+            for image in self.images:
+                if image.width ==  64 and image.height == 64:
+                    img_data = requests.get(image.url).content
+
+            if img_data == None:
+                print("UNABLE TO GET ALBUM ART")
+                exit()
+
+            for i in range(len(self.tracks)):
+                track = self.tracks[i]
+
+                # Search youtube for track
+                search = track.get_search_string()
+                url = youtube_search(search)
+
+                # Download to mp3 file
+                dst = f"out/{self.name}/{str(track.track_number).zfill(len(str(self.track_count)))}. {track.name}"
+                youtube_to_mp3(url, dst)
+                
+                # Create string of artists
+                artists = self.artists[0].name
+                for artist in self.artists[1:]:
+                    artists += "/"
+                    artists += artist.name
+
+                # Add metadata to mp3
+                mp3 = music_tag.load_file(f"{dst}.mp3")
+                mp3["title"] = track.name
+                mp3["album"] = self.name
+                mp3["artist"] = artists
+                mp3["discnumber"] = track.track_number
+                mp3["year"] = self.release_year
+                if img_data:
+                    mp3["artwork"] = img_data
+                mp3.save()
+    
 
     def __init__(self):
         with open(self.CREDS_FILE) as f:
@@ -88,19 +153,19 @@ class Spotify:
 
 
 # Downloads URL to .tmp.mp3
-def youtube_to_mp3(url: str):
+def youtube_to_mp3(url: str, dst: str):
     YDL_OPTS = {
         'format': 'bestaudio',
         'cookiesfrombrowser': ('firefox',),
         'extractaudio': True,
-        'outtmpl': ".tmp.webm"
+        'outtmpl': f"{dst}.webm"
     }
 
     with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
         ydl.download([url])
 
-    subprocess.run('ffmpeg -i .tmp.webm .tmp.mp3', shell=True)
-    os.remove(".tmp.webm")
+    subprocess.run(f"ffmpeg -i \"{dst}.webm\" \"{dst}.mp3\"", shell=True)
+    os.remove(f"{dst}.webm")
 
 def youtube_search(query: str):
     # Options for searching
@@ -118,32 +183,8 @@ def youtube_search(query: str):
         #print(video)
         return f"https://www.youtube.com/watch?v={video['id']}"
 
+
 spot = Spotify()
 
-#p = spot.get_playlist_by_link("https://open.spotify.com/playlist/2hFAnErU2cPxkoxivmBT2l?si=1be60dd1bf6f4bac")
 a = spot.get_album_by_link("https://open.spotify.com/album/7yQtjAjhtNi76KRu05XWFS?si=QYj0ot_STVC59v2DN9W1cw")
-
-for i in range(len(a.tracks)):
-    t = a.tracks[i]
-
-    s = t.get_search_string()
-    url = youtube_search(s)
-    youtube_to_mp3(url)
-
-    os.rename(".tmp.mp3", f"{t.track_number}. {t.name}")
-
-#print(p.tracks[0].get_search_string())
-#
-#url = youtube_search(p.tracks[0].get_search_string())
-#
-#youtube_to_mp3(url)
-#
-#os.rename(".tmp.mp3", f"\"{p.tracks[0].get_search_string()}.mp3\"")
-
-#for t in p.tracks:
-    #print(t.get_search_string())
-
-#youtube_search("andrew dotson")
-
-#URL = "https://www.youtube.com/watch?v=KnlZ9qX7nz8"
-#youtube_to_mp3(URL)
+a.download()

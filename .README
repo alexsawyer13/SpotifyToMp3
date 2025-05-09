@@ -1,8 +1,7 @@
-Install the latest version of ytdlp. It's important to downlaod from github directly, because Youtube regularly implements changes to stop ytdlp from downloading, so they must regularly update to fix this.
+Install PIP packages. It's important to download yt-dlp from github directly because Youtube regularly implements changes to stop ytdlp from downloading, so they must regularly update to fix this.
 	pip install -U git+https://github.com/yt-dlp/yt-dlp.git
-
-Install spotipy
 	pip install spotipy
+	pip install music_tag
 
 Install FFMPEG
 	sudo apt install ffmpeg
