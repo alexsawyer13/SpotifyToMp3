@@ -219,8 +219,8 @@ def youtube_search(query: str):
 
 if len(sys.argv) != 2:
     print("Usage:")
-    print("\tstmp3 <album>")
-    print("\tstmp3 <file of albums>")
+    print("\tstmp3 <link>")
+    print("\tstmp3 <file of links>")
 
 arg = sys.argv[1]
 links = []
